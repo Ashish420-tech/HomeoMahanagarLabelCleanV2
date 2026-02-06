@@ -1,0 +1,29 @@
+Folder PATH listing for volume New Volume
+Volume serial number is 2A36-5493
+D:.
++---bin
+¦   +---Debug
+¦       +---net8.0-windows
+¦           +---runtimes
+¦               +---win
+¦               ¦   +---lib
+¦               ¦       +---net8.0
+¦               +---win-arm64
+¦               ¦   +---native
+¦               +---win-x64
+¦               ¦   +---native
+¦               +---win-x86
+¦                   +---native
++---Commands
++---Helpers
++---Logging
++---Models
++---obj
+¦   +---Debug
+¦       +---net8.0-windows
+¦           +---ref
+¦           +---refint
+¦           +---Views
++---Services
++---ViewModels
++---Views

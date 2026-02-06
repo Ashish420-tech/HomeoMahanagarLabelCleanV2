@@ -1,0 +1,44 @@
+<Window x:Class="HomeoMahanagarLabelCleanV2.Views.PrintPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Print Preview" Height="520" Width="820" WindowStartupLocation="CenterOwner">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0" VerticalAlignment="Center" Margin="0,0,0,8">
+            <TextBlock Text="Printer:" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ComboBox x:Name="PrinterCombo" Width="380" IsEditable="False" DisplayMemberPath="Name" />
+            <Button x:Name="RefreshButton" Content="Refresh" Margin="8,0,0,0" Width="80" Click="RefreshButton_Click" />
+            <TextBlock Text=" " />
+        </StackPanel>
+
+        <!-- Tuning controls for printer DPI and padding -->
+        <StackPanel Orientation="Horizontal" Grid.Row="0" HorizontalAlignment="Right" Margin="0,0,0,8">
+            <TextBlock Text="DPI:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox x:Name="DpiBox" Width="60" Margin="0,0,8,0" />
+            <TextBlock Text="Padding (dip):" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox x:Name="PaddingBox" Width="60" Margin="0,0,8,0" />
+            <Button Content="Apply" Width="60" Click="ApplyTuning_Click" />
+        </StackPanel>
+
+        <Border Grid.Row="1" BorderThickness="1" BorderBrush="#DDD" Background="White">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <!-- Show the preview image at native size (no WPF scaling). ScrollViewer allows inspection when larger than window. -->
+                    <Border x:Name="PreviewBorder" SnapsToDevicePixels="True" UseLayoutRounding="True"
+                        BorderBrush="Transparent" BorderThickness="0" CornerRadius="0" Background="White"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Image x:Name="PreviewImage" Stretch="None" SnapsToDevicePixels="True" UseLayoutRounding="True" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+            </ScrollViewer>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button x:Name="CancelButton" Content="Cancel" Width="100" Margin="0,0,8,0" Click="CancelButton_Click" />
+            <Button x:Name="PrintButton" Content="Print" Width="120" Background="#0078D7" Foreground="White" Click="PrintButton_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

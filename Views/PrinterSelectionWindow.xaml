@@ -1,0 +1,13 @@
+<Window x:Class="HomeoMahanagarLabelCleanV2.Views.PrinterSelectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Select Label Printer" Height="180" Width="400">
+    <StackPanel Margin="10">
+        <TextBlock Text="Select the thermal label printer to be used by this application:"/>
+        <ComboBox x:Name="PrinterCombo" Margin="0,8,0,8"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="BtnOk" Content="OK" Width="80" Margin="0,0,8,0" Click="BtnOk_Click"/>
+            <Button Content="Cancel" Width="80" Click="BtnCancel_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
