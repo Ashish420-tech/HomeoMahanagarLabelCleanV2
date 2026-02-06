@@ -17,9 +17,27 @@ using HomeoMahanagarLabelCleanV2.Helpers;
 
 namespace HomeoMahanagarLabelCleanV2.Services
 {
+    /// <summary>
+    /// Central printing service for labels.
+    /// Provides PDF export, TSPL generation and multiple print paths (TSPL raw, PDF spool, Visual print).
+    /// Comments focus on DPI, WPF layout and how we map device-independent pixels (DIPs) to printer dots.
+    /// </summary>
     public class PrintService
     {
-        // Build TSPL bytes and return used DPI/padding for diagnostics
+        /// <summary>
+        /// Build TSPL command bytes for a set of label canvas items.
+        /// </summary>
+        /// <remarks>
+        /// This method composes exactly five logical text lines, measures widths using WPF metrics
+        /// (DIPs) and converts them to printer dots using the configured printer DPI. It also
+        /// applies an auto-shrink loop so text fits the printable width on the device font.
+        /// The returned tuple includes diagnostic DPI and padding in dots so callers can persist
+        /// calibration values.
+        /// </remarks>
+        /// <param name="items">Label canvas items providing logical text lines and layout coordinates.</param>
+        /// <param name="widthMm">Physical label width in millimeters (source of truth for sizing).</param>
+        /// <param name="heightMm">Physical label height in millimeters.</param>
+        /// <returns>Tuple containing TSPL bytes, used printer DPI and padding (dots) for diagnostics.</returns>
         private (byte[]? bytes, int printerDpi, int paddingDots) BuildTsplBytes(IEnumerable<LabelCanvasItem> items, double widthMm, double heightMm)
         {
             if (items == null) return (null, 0, 0);
@@ -187,6 +205,11 @@ namespace HomeoMahanagarLabelCleanV2.Services
 
                 // Compute vertical start Y to center the block within the label vertically.
                 // Ensure we don't place text inside the border inset.
+                /// <summary>
+                /// Vertical start in printer dots. We prefer centering the block vertically but
+                /// constrain it to the inner inset so text never prints into the label edge.
+                /// The +4 safety offset prevents printed glyphs from touching the sensor area.
+                /// </summary>
                 int startY = Math.Max(BorderInset + 4, (labelHeightDots - blockHeight) / 2);
 
                 int centerX = labelWidthDots / 2;
@@ -290,7 +313,7 @@ namespace HomeoMahanagarLabelCleanV2.Services
                 AppState.Storage.LabelPrinterDpi = dpi;
                 AppState.Storage.LabelPaddingDip = paddingDip;
                 AppState.Save();
-                AppLogger.Log($"PrintService: saved printer tuning dpi={dpi}, paddingDip={paddingDip}");
+                AppLogger.Log($"PrintService: updated printer tuning dpi={dpi}, paddingDip={paddingDip}");
             }
             catch (Exception ex)
             {

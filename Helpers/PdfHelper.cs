@@ -9,6 +9,14 @@ using System.Windows.Media.Imaging;
 
 namespace HomeoMahanagarLabelCleanV2.Helpers
 {
+    /// <summary>
+    /// PDF helper utilities used to export a WPF visual to a PDF page sized to the
+    /// physical label. The PDF is generated from a rendered WPF visual (rasterized
+    /// to PNG) to guarantee pixel-perfect parity with the on-screen Preview and
+    /// the bitmap used for Print. This avoids typographic differences between
+    /// WPF and printer device fonts and ensures consistent DPI/layout across
+    /// Preview, PDF and Print paths.
+    /// </summary>
     public static class PdfHelper
     {
         // physical label size in millimeters
@@ -20,6 +28,39 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
         // export DPI for rasterization
         private const double EXPORT_DPI = 300.0;
 
+        /// <summary>
+        /// Export a WPF <see cref="FrameworkElement"/> to a PDF file sized to the
+        /// physical label dimensions declared in <see cref="PrintConstants"/>.
+        /// </summary>
+        /// <remarks>
+        /// Implementation notes:
+        /// - We prefer rasterizing the WPF visual to a PNG and embedding it in the PDF
+        ///   because printer device fonts and WPF font metrics rarely match exactly.
+        ///   Raster embedding guarantees the exported PDF visually matches the WPF
+        ///   preview and the image used for raster printing.
+        /// - DPI: A raster DPI is chosen by <see cref="EXPORT_DPI"/> (default 300).
+        ///   The DPI must be sufficient for label quality while allowing predictable
+        ///   conversion from DIPs -> pixels -> printer dots. When printing we use a
+        ///   printer-tuned DPI (e.g., 203) for rasterization so the bitmap maps to
+        ///   printer dots deterministically.
+        /// - DIPs -> points: PDF drawing APIs expect points (1 point = 1/72 inch).
+        ///   The conversion used is DIP * 72 / 96. The helper uses centralized
+        ///   conversions in <see cref="PrintConstants"/> to avoid rounding drift.
+        /// - Page size: the PDF page is created using the physical label dimensions
+        ///   (mm) so the embedded image maps 1:1 to the real world label size.
+        /// - Border hiding/edge padding: before rasterizing we temporarily hide any
+        ///   decorative Borders (rounded corners) in the visual tree so the PNG
+        ///   contains label content only. An edge padding parameter prevents clipping
+        ///   of rounded corners during render; saved border properties are restored
+        ///   after rendering.
+        /// </remarks>
+        /// <param name="view">The WPF element to export (should be arranged/measured to label size).</param>
+        /// <param name="path">Destination PDF path to write.</param>
+        /// <param name="exportVector">If true a vector/text fallback may be used when rasterization fails.</param>
+        /// <param name="fontFamily">Font family used by the vector fallback.</param>
+        /// <param name="isBold">Whether to use bold in the vector fallback (ignored for raster path).</param>
+        /// <param name="fontSize">Font size used by the vector fallback.</param>
+        /// <param name="lineSpacing">Line spacing used by the vector fallback.</param>
         public static void ExportLabelToPdf(FrameworkElement view, string path, bool exportVector = true, string fontFamily = "Segoe UI", bool isBold = false, double fontSize = 9.0, double lineSpacing = 0.0)
         {
             if (view == null) throw new System.ArgumentNullException(nameof(view));
@@ -35,9 +76,13 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
                     // compute edge padding in pixels based on desired physical gap (LabelPaddingMm)
                     // Temporarily remove any visible Borders (rounded corners) in the visual tree so
                     // exported PNG/PDF contains no decorative rounded border. We save original
-                    // properties and restore them after rendering.
+                    // properties and restore them after rendering. This approach ensures the
+                    // embedded image contains only label content and not UI chrome.
                     var modifiedBorders = new List<(Border border, Thickness thickness, Brush brush, CornerRadius corner)>();
 
+                    // Recursively traverse the visual tree to find Borders. Hiding all Borders
+                    // is safe because we restore them immediately after rendering; the goal
+                    // is to avoid capturing decoration that would appear in the PDF.
                     void CollectAndHideBorders(System.Windows.DependencyObject parent)
                     {
                         if (parent == null) return;
@@ -68,10 +113,14 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
                     }
                     catch { }
 
+                    // Convert the physical label padding (mm) into pixels at the chosen export DPI.
+                    // edgePad prevents clipping of rounded corners during rasterization; for
+                    // borderless exports this can be zero, but a small positive value avoids
+                    // accidental clipping when visuals have stroke widths.
                     int edgePad = (int)System.Math.Ceiling(HomeoMahanagarLabelCleanV2.Helpers.PrintConstants.LabelPaddingMm / 25.4 * EXPORT_DPI);
                     var png = RenderElementToPngBytes(view, LABEL_MM_WIDTH, LABEL_MM_HEIGHT, EXPORT_DPI, edgePad);
 
-                    // restore borders
+                    // restore original Border properties so the UI is not mutated by export.
                     try
                     {
                         foreach (var t in modifiedBorders)
@@ -100,6 +149,10 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
                     gfx2.DrawRectangle(XBrushes.White, 0, 0, page2.Width.Point, page2.Height.Point);
 
                     using var img = XImage.FromStream(ms);
+                    // Draw the embedded raster at the full page area (minus marginPoints).
+                    // Because the page was created using the physical label size the PNG
+                    // (rendered using matching DIPs->pixels conversion) will map 1:1 to
+                    // the printed area when the PDF is spooled to a printer.
                     double drawW = page2.Width.Point - marginPoints * 2.0;
                     double drawH = page2.Height.Point - marginPoints * 2.0;
                     gfx2.DrawImage(img, marginPoints, marginPoints, drawW, drawH);
@@ -115,7 +168,10 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
                     // continue to vector/text fallback
                 }
 
-                // Fallback: draw border and text using vector drawing from AdminLayout
+                // Fallback: draw text using vector drawing from AdminLayout.
+                // Note: vector fallback is retained for robustness but may not match
+                // the WPF raster output exactly due to font metric differences. The
+                // raster path above is preferred to guarantee visual parity.
                 try
                 {
                     var doc3 = new PdfDocument();
@@ -127,6 +183,7 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
                     gfx3.DrawRectangle(XBrushes.White, 0, 0, page3.Width.Point, page3.Height.Point);
 
                     // use the same marginPoints as the raster path so PDF layout matches PNG output
+                    // DIP -> points multiplier used for converting stored DIPs into PDF points.
                     const double dipToPointLocal2 = 72.0 / 96.0;
                     double insetPts2 = marginPoints; // outer gap in points
                     double borderThicknessPts2 = 1.5 * dipToPointLocal2; // reasonable stroke width
