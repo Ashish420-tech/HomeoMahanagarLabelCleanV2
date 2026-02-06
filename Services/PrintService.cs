@@ -26,7 +26,9 @@ namespace HomeoMahanagarLabelCleanV2.Services
             var sb = new StringBuilder();
             // GOLDEN TSPL HEADER (per device recommendations)
             sb.AppendLine($"SIZE {widthMm} mm,{heightMm} mm");
-            sb.AppendLine("GAP 3 mm,0 mm");
+            // Use centralized label padding (mm) for GAP so device and app are consistent.
+            // Limit gap to 2 mm for these labels.
+            sb.AppendLine($"GAP {HomeoMahanagarLabelCleanV2.Helpers.PrintConstants.LabelPaddingMm} mm,0 mm");
             sb.AppendLine("DIRECTION 1");
             sb.AppendLine("REFERENCE 0,0");
             sb.AppendLine("DENSITY 11");
