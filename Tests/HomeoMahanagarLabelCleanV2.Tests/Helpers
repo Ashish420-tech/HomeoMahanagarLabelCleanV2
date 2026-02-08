@@ -1,0 +1,229 @@
+using System;
+using System.IO;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+
+namespace HomeoMahanagarLabelCleanV2.Tests.Helpers;
+
+/// <summary>
+/// Helper for rendering WPF visuals at different DPI settings for multi-DPI testing.
+/// 
+/// Purpose:
+/// - Simulate Windows display scaling (100%, 125%, 150%) without changing system settings
+/// - Validate WPF layout behavior under different DPI scenarios
+/// - Generate snapshot baselines for each DPI configuration
+/// 
+/// Approach:
+/// - Render the same visual at multiple DPI values using RenderTargetBitmap
+/// - WPF layout engine respects the DPI and adjusts pixel dimensions accordingly
+/// - Each DPI produces a different pixel-sized bitmap but represents the same physical size
+/// 
+/// Limitations:
+/// - Does NOT test actual Windows DWM rendering
+/// - Does NOT test hardware-specific GPU behavior
+/// - Does NOT test font hinting variations across machines
+/// - Font rendering may differ slightly from actual scaled desktop
+/// </summary>
+public static class DpiRenderingHelper
+{
+    /// <summary>
+    /// Standard Windows DPI scaling levels.
+    /// 96 DPI = 100% scaling (baseline)
+    /// 120 DPI = 125% scaling
+    /// 144 DPI = 150% scaling
+    /// 192 DPI = 200% scaling
+    /// </summary>
+    public static class StandardDpi
+    {
+        public const double Dpi100 = 96.0;   // 100% - Standard
+        public const double Dpi125 = 120.0;  // 125% - Common laptop
+        public const double Dpi150 = 144.0;  // 150% - High DPI laptop
+        public const double Dpi200 = 192.0;  // 200% - 4K displays
+    }
+
+    /// <summary>
+    /// Result of rendering a WPF visual at a specific DPI.
+    /// </summary>
+    public sealed class DpiRenderResult
+    {
+        public double Dpi { get; init; }
+        public int PixelWidth { get; init; }
+        public int PixelHeight { get; init; }
+        public double PhysicalWidthInches { get; init; }
+        public double PhysicalHeightInches { get; init; }
+        public byte[] PngBytes { get; init; } = Array.Empty<byte>();
+    }
+
+    /// <summary>
+    /// Render a WPF FrameworkElement at a specific DPI.
+    /// </summary>
+    /// <remarks>
+    /// This simulates how the element would be rasterized at the given DPI scaling level.
+    /// The element is measured and arranged at its logical (DIP) size, then rendered
+    /// to a bitmap with pixel dimensions appropriate for the target DPI.
+    /// 
+    /// Example:
+    /// - Element logical size: 200 DIPs × 100 DIPs
+    /// - At 96 DPI (100%): produces 200px × 100px bitmap
+    /// - At 120 DPI (125%): produces 250px × 125px bitmap
+    /// - At 144 DPI (150%): produces 300px × 150px bitmap
+    /// 
+    /// All represent the same physical size (2.08" × 1.04") but at different resolutions.
+    /// </remarks>
+    /// <param name="element">WPF visual to render (must be arranged before calling).</param>
+    /// <param name="logicalWidth">Logical width in DIPs (Device Independent Pixels).</param>
+    /// <param name="logicalHeight">Logical height in DIPs.</param>
+    /// <param name="dpi">Target DPI for rasterization (e.g., 96, 120, 144).</param>
+    /// <returns>Render result with PNG bytes and metadata.</returns>
+    public static DpiRenderResult RenderAtDpi(
+        FrameworkElement element,
+        double logicalWidth,
+        double logicalHeight,
+        double dpi)
+    {
+        if (element == null)
+            throw new ArgumentNullException(nameof(element));
+        if (logicalWidth <= 0 || logicalHeight <= 0)
+            throw new ArgumentException("Logical dimensions must be positive.");
+        if (dpi <= 0)
+            throw new ArgumentException("DPI must be positive.");
+
+        // Measure and arrange the element at its logical size (DIPs)
+        // This is critical: WPF layout must complete before rendering
+        element.Measure(new Size(logicalWidth, logicalHeight));
+        element.Arrange(new Rect(0, 0, logicalWidth, logicalHeight));
+        element.UpdateLayout();
+
+        // Compute pixel dimensions at target DPI
+        // Formula: pixels = DIPs * (targetDpi / 96.0)
+        double dpiScale = dpi / 96.0;
+        int pixelWidth = (int)Math.Ceiling(logicalWidth * dpiScale);
+        int pixelHeight = (int)Math.Ceiling(logicalHeight * dpiScale);
+
+        // Ensure minimum 1x1 pixel bitmap
+        pixelWidth = Math.Max(1, pixelWidth);
+        pixelHeight = Math.Max(1, pixelHeight);
+
+        // Create RenderTargetBitmap at target DPI
+        // This is where the DPI simulation happens - WPF renders as if the system
+        // were running at this DPI setting
+        var renderBitmap = new RenderTargetBitmap(
+            pixelWidth,
+            pixelHeight,
+            dpi,
+            dpi,
+            PixelFormats.Pbgra32);
+
+        // Render the visual
+        renderBitmap.Render(element);
+
+        // Encode to PNG
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
+
+        byte[] pngBytes;
+        using (var ms = new MemoryStream())
+        {
+            encoder.Save(ms);
+            pngBytes = ms.ToArray();
+        }
+
+        // Compute physical size in inches (invariant across DPI)
+        double physicalWidthInches = logicalWidth / 96.0;
+        double physicalHeightInches = logicalHeight / 96.0;
+
+        return new DpiRenderResult
+        {
+            Dpi = dpi,
+            PixelWidth = pixelWidth,
+            PixelHeight = pixelHeight,
+            PhysicalWidthInches = physicalWidthInches,
+            PhysicalHeightInches = physicalHeightInches,
+            PngBytes = pngBytes
+        };
+    }
+
+    /// <summary>
+    /// Render a visual at multiple DPI settings and return all results.
+    /// Useful for batch testing across common scaling levels.
+    /// </summary>
+    public static DpiRenderResult[] RenderAtMultipleDpi(
+        FrameworkElement element,
+        double logicalWidth,
+        double logicalHeight,
+        params double[] dpiValues)
+    {
+        var results = new DpiRenderResult[dpiValues.Length];
+        for (int i = 0; i < dpiValues.Length; i++)
+        {
+            results[i] = RenderAtDpi(element, logicalWidth, logicalHeight, dpiValues[i]);
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Save a DPI render result to disk for manual inspection or baseline creation.
+    /// </summary>
+    public static void SaveRenderResult(DpiRenderResult result, string directory, string baseFileName)
+    {
+        Directory.CreateDirectory(directory);
+        string fileName = $"{baseFileName}_DPI{result.Dpi}.png";
+        string fullPath = Path.Combine(directory, fileName);
+        File.WriteAllBytes(fullPath, result.PngBytes);
+    }
+
+    /// <summary>
+    /// Compare two PNG byte arrays with a pixel tolerance.
+    /// Returns the percentage of pixels that differ beyond the tolerance.
+    /// </summary>
+    public static double ComparePngBytes(byte[] expected, byte[] actual, int pixelTolerance = 5)
+    {
+        if (expected.Length == actual.Length && ByteArrayEquals(expected, actual))
+            return 0.0; // Exact match
+
+        var expectedBitmap = DecodePng(expected);
+        var actualBitmap = DecodePng(actual);
+
+        if (expectedBitmap.PixelWidth != actualBitmap.PixelWidth ||
+            expectedBitmap.PixelHeight != actualBitmap.PixelHeight)
+        {
+            return 100.0; // Dimensions mismatch = 100% difference
+        }
+
+        int width = expectedBitmap.PixelWidth;
+        int height = expectedBitmap.PixelHeight;
+        int stride = width * 4; // 4 bytes per pixel (RGBA)
+
+        byte[] expectedPixels = new byte[stride * height];
+        byte[] actualPixels = new byte[stride * height];
+
+        expectedBitmap.CopyPixels(expectedPixels, stride, 0);
+        actualBitmap.CopyPixels(actualPixels, stride, 0);
+
+        int differences = 0;
+        for (int i = 0; i < expectedPixels.Length; i++)
+        {
+            int diff = Math.Abs(expectedPixels[i] - actualPixels[i]);
+            if (diff > pixelTolerance)
+                differences++;
+        }
+
+        return (double)differences / expectedPixels.Length * 100.0;
+    }
+
+    private static bool ByteArrayEquals(byte[] a, byte[] b)
+    {
+        if (a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++)
+            if (a[i] != b[i]) return false;
+        return true;
+    }
+
+    private static BitmapSource DecodePng(byte[] pngBytes)
+    {
+        using var ms = new MemoryStream(pngBytes);
+        var decoder = new PngBitmapDecoder(ms, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        return decoder.Frames[0];
+    }
+}
