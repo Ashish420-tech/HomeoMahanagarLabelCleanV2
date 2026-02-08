@@ -3,6 +3,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using HomeoMahanagarLabelCleanV2.Models;
+#if DEBUG
+using System.Diagnostics;
+#endif
 
 namespace HomeoMahanagarLabelCleanV2.Views
 {
@@ -41,6 +44,9 @@ namespace HomeoMahanagarLabelCleanV2.Views
         /// <param name="items">Sequence of layout items representing text, position and font.</param>
         public void RenderItems(IEnumerable<LabelCanvasItem> items)
         {
+#if DEBUG
+            var sw = Stopwatch.StartNew();
+#endif
             // 🔥 RESET STATE COMPLETELY
             RootCanvas.Children.Clear();
 
@@ -113,6 +119,10 @@ namespace HomeoMahanagarLabelCleanV2.Views
 
                 RootCanvas.Children.Add(tb);
             }
+#if DEBUG
+            sw.Stop();
+            try { HomeoMahanagarLabelCleanV2.Logging.AppLogger.Log($"[PERF] PrintLabelView.RenderItems: {sw.ElapsedMilliseconds}ms ({items?.Count() ?? 0} items)"); } catch { }
+#endif
         }
     }
 }

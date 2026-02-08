@@ -9,7 +9,25 @@
 
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Prevent duplicate assembly attribute errors in WPF projects -->
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
   </PropertyGroup>
+
+  <!-- Exclude test files from main project compilation -->
+  <ItemGroup>
+    <Compile Remove="Tests\**" />
+    <EmbeddedResource Remove="Tests\**" />
+    <None Remove="Tests\**" />
+    <Page Remove="Tests\**" />
+
+    <!-- Also exclude the separate test project directory -->
+    <Compile Remove="HomeoMahanagarLabelCleanV2.Tests\**" />
+    <EmbeddedResource Remove="HomeoMahanagarLabelCleanV2.Tests\**" />
+    <None Remove="HomeoMahanagarLabelCleanV2.Tests\**" />
+    <Page Remove="HomeoMahanagarLabelCleanV2.Tests\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.0" />

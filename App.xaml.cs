@@ -20,6 +20,33 @@ namespace HomeoMahanagarLabelCleanV2
             try { HomeoMahanagarLabelCleanV2.Logging.AppLogger.Initialize(); } catch { }
             try { HomeoMahanagarLabelCleanV2.Logging.AppLogger.Log("Application starting"); } catch { }
 
+#if DEBUG
+            // Initialize Session Event Logger (DEBUG-only)
+            try
+            {
+                string sessionLogDir = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "HomeoMahanagarLabelCleanV2", "SessionLogs");
+                HomeoMahanagarLabelCleanV2.Logging.SessionEventLogger.EnableFileLogging(sessionLogDir);
+
+                // Optional: Subscribe for console output during development
+                HomeoMahanagarLabelCleanV2.Logging.SessionEventLogger.Subscribe(evt =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SESSION] {evt.Timestamp:HH:mm:ss.fff} [{evt.Level}] {evt.Operation}: {evt.Message}");
+                });
+
+                HomeoMahanagarLabelCleanV2.Logging.SessionEventLogger.LogInfo("App", "Session event logging initialized");
+            }
+            catch { }
+
+            // Start UI Thread Watchdog (DEBUG-only)
+            try
+            {
+                HomeoMahanagarLabelCleanV2.Diagnostics.UiThreadWatchdog.Start(this.Dispatcher);
+            }
+            catch { }
+#endif
+
             this.DispatcherUnhandledException += App_DispatcherUnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;

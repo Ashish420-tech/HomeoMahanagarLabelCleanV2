@@ -6,6 +6,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+#if DEBUG
+using System.Diagnostics;
+#endif
 
 namespace HomeoMahanagarLabelCleanV2.Helpers
 {
@@ -65,6 +68,9 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
         {
             if (view == null) throw new System.ArgumentNullException(nameof(view));
             if (string.IsNullOrWhiteSpace(path)) throw new System.ArgumentNullException(nameof(path));
+#if DEBUG
+            var swTotal = Stopwatch.StartNew();
+#endif
 
             try
             {
@@ -159,6 +165,10 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
 
                     // no additional border drawn here — the embedded PNG already contains the preview border
                     doc2.Save(path);
+#if DEBUG
+                    swTotal.Stop();
+                    try { HomeoMahanagarLabelCleanV2.Logging.AppLogger.Log($"[PERF] PdfHelper.ExportLabelToPdf (raster): {swTotal.ElapsedMilliseconds}ms"); } catch { }
+#endif
                     return;
                 }
                 catch (System.Exception imgEx)
@@ -218,6 +228,10 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
                     }
 
                     doc3.Save(path);
+#if DEBUG
+                    swTotal.Stop();
+                    try { HomeoMahanagarLabelCleanV2.Logging.AppLogger.Log($"[PERF] PdfHelper.ExportLabelToPdf (vector): {swTotal.ElapsedMilliseconds}ms"); } catch { }
+#endif
                     return;
                 }
                 catch (System.Exception vecEx)
@@ -239,6 +253,9 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
         public static byte[] RenderElementToPngBytes(FrameworkElement view, double widthMm = 50.0, double heightMm = 30.0, double dpi = 300.0, int edgePaddingPixels = 2)
         {
             if (view == null) throw new System.ArgumentNullException(nameof(view));
+#if DEBUG
+            var swRender = Stopwatch.StartNew();
+#endif
 
             // compute pixel size at requested DPI, include optional edge padding in pixels
             int contentPxW = (int)System.Math.Round(widthMm / 25.4 * dpi);
@@ -285,7 +302,12 @@ namespace HomeoMahanagarLabelCleanV2.Helpers
 
             using var outMs = new MemoryStream();
             pngEncoder.Save(outMs);
-            return outMs.ToArray();
+            var result = outMs.ToArray();
+#if DEBUG
+            swRender.Stop();
+            try { HomeoMahanagarLabelCleanV2.Logging.AppLogger.Log($"[PERF] PdfHelper.RenderElementToPngBytes: {swRender.ElapsedMilliseconds}ms (DPI={dpi}, size={result.Length} bytes)"); } catch { }
+#endif
+            return result;
         }
     }
 }
